@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "test-employee": {
+      "commandName": "Project",
+      "commandLineArgs": "\"a\" \"2000-11-11\" \"a\""
+    }
+  }
+}
