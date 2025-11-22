@@ -13,7 +13,8 @@ namespace test_employee.Repository
                                   Birthday DATE NOT NULL,
                                   Gender VARCHAR(1) NOT NULL);";
 
-            await ExecuteQueryAsync(query);
+            using var context = await GetContextAsync();
+            await ExecuteQueryAsync(query, context);
         }
 
         public async Task<IEnumerable<Employee>> GetUniqueAsync()
@@ -31,7 +32,8 @@ namespace test_employee.Repository
                         WHERE rn = 1
                         ORDER BY FullName;";
 
-            var employees = await GetEmployeesAsync(query);
+            using var context = await GetContextAsync();
+            var employees = await GetEmployeesAsync(query, context);
             return employees;
         }
 
@@ -42,7 +44,8 @@ namespace test_employee.Repository
                         WHERE FullName LIKE 'F%'
                         AND Gender = 'M'";
 
-            var employees = await GetEmployeesAsync(query);
+            using var context = await GetContextAsync();
+            var employees = await GetEmployeesAsync(query, context);
             return employees;
         }
 
@@ -53,7 +56,8 @@ namespace test_employee.Repository
                     WHERE Initial = 'F'
                     AND Gender = 'M'";
 
-            var employees = await GetEmployeesAsync(query);
+            using var context = await GetContextAsync();
+            var employees = await GetEmployeesAsync(query, context);
             return employees;
         }
 
@@ -69,7 +73,8 @@ namespace test_employee.Repository
 
                     UPDATE STATISTICS Employee;";
 
-            await ExecuteQueryAsync(query);
+            using var context = await GetContextAsync();
+            await ExecuteQueryAsync(query, context);
         }
 
         public async Task OptimizeOffAsync()
@@ -78,24 +83,26 @@ namespace test_employee.Repository
                     DROP INDEX idx_gender_initial_include ON Employee;
                     ALTER TABLE Employee DROP COLUMN Initial;";
 
-            await ExecuteQueryAsync(query);
+            using var context = await GetContextAsync();
+            await ExecuteQueryAsync(query, context);
         }
 
-        
-        private async Task ExecuteQueryAsync(string query)
-        {
-            using SqlConnection context = new SqlConnection(DbConnection.connectionString);
-            context.Open();
 
+        private async Task<SqlConnection> GetContextAsync()
+        {
+            var context = new SqlConnection(DbConnection.connectionString);
+            await context.OpenAsync();
+            return context;
+        }
+
+        private async Task ExecuteQueryAsync(string query, SqlConnection context)
+        {
             using SqlCommand cmd = new SqlCommand(query, context);
             await cmd.ExecuteNonQueryAsync();
         }
 
-        private async Task<IEnumerable<Employee>> GetEmployeesAsync(string query)
-        {
-            using SqlConnection context = new SqlConnection(DbConnection.connectionString);
-            context.Open();
-            
+        private async Task<IEnumerable<Employee>> GetEmployeesAsync(string query, SqlConnection context)
+        {            
             using SqlCommand cmd = new SqlCommand(query, context);
             using var reader = await cmd.ExecuteReaderAsync();
 
