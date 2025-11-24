@@ -13,7 +13,7 @@ namespace test_employee
                 Console.WriteLine("Ошибка: Не указаны параметры для выполнения команды.");
                 return;
             }
-        
+
             switch (args[0])
             {
                 case "1":

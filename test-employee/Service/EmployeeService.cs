@@ -57,7 +57,8 @@ namespace test_employee.Service
                 var employees = await repo.GetFMalesSlowAsync();
                 sw.Stop();
 
-                LogTimedQueryResult(employees, sw);
+                Console.WriteLine(employees.ToEmployeesString());
+                Console.WriteLine($"Время: {sw.ElapsedMilliseconds} ms");
             }
             catch (Exception ex)
             {
@@ -69,13 +70,20 @@ namespace test_employee.Service
         {
             try
             {
+                Stopwatch swNonOpt = Stopwatch.StartNew();
+                var employees = await repo.GetFMalesSlowAsync();
+                swNonOpt.Stop();
+
+                Console.WriteLine($"Время выполнения неоптимизированного запроса: {swNonOpt.ElapsedMilliseconds} ms");
+
                 await repo.OptimizeOnAsync();
 
-                Stopwatch sw = Stopwatch.StartNew();
-                var employees = await repo.GetFMalesFastAsync();
-                sw.Stop();
+                Stopwatch swOpt = Stopwatch.StartNew();
+                employees = await repo.GetFMalesFastAsync();
+                swOpt.Stop();
 
-                LogTimedQueryResult(employees, sw);
+                Console.WriteLine($"Время выполнения оптимизированного запроса: {swOpt.ElapsedMilliseconds} ms");
+                Console.WriteLine($"Оптимизированный запрос выполнился быстрее на {swNonOpt.ElapsedMilliseconds - swOpt.ElapsedMilliseconds} ms");
             }
             catch (Exception ex)
             {
@@ -85,13 +93,6 @@ namespace test_employee.Service
             {
                 await repo.OptimizeOffAsync();
             }
-        }
-
-
-        private void LogTimedQueryResult(IEnumerable<Employee> employees, Stopwatch sw)
-        {
-            Console.WriteLine(employees.ToEmployeesString());
-            Console.WriteLine($"Время: {sw.ElapsedMilliseconds} ms");
         }
     }
 }
