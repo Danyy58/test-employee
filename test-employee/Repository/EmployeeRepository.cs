@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using test_employee.Data;
 using test_employee.Entity;
 
@@ -13,8 +14,7 @@ namespace test_employee.Repository
                                   Birthday DATE NOT NULL,
                                   Gender VARCHAR(1) NOT NULL);";
 
-            using var context = await GetContextAsync();
-            await ExecuteQueryAsync(query, context);
+            await ExecuteQueryAsync(query);
         }
 
         public async Task<IEnumerable<Employee>> GetUniqueAsync()
@@ -32,8 +32,7 @@ namespace test_employee.Repository
                         WHERE rn = 1
                         ORDER BY FullName;";
 
-            using var context = await GetContextAsync();
-            var employees = await GetEmployeesAsync(query, context);
+            var employees = await GetEmployeesAsync(query);
             return employees;
         }
 
@@ -44,8 +43,7 @@ namespace test_employee.Repository
                         WHERE FullName LIKE 'F%'
                         AND Gender = 'M'";
 
-            using var context = await GetContextAsync();
-            var employees = await GetEmployeesAsync(query, context);
+            var employees = await GetEmployeesAsync(query);
             return employees;
         }
 
@@ -57,53 +55,54 @@ namespace test_employee.Repository
                     AND Gender = 'M'";
 
             using var context = await GetContextAsync();
-            var employees = await GetEmployeesAsync(query, context);
+            var employees = await GetEmployeesAsync(query);
             return employees;
         }
 
         public async Task OptimizeOnAsync()
         {
             var query = @"
-                    ALTER TABLE Employee
-                    ADD Initial AS (SUBSTRING(FullName, 1, 1));
+                ALTER TABLE Employee
+                ADD COLUMN Initial TEXT GENERATED ALWAYS AS (substr(FullName, 1, 1)) VIRTUAL;
 
-                    CREATE NONCLUSTERED INDEX idx_gender_initial_include
-                    ON Employee(Gender, Initial)                    
-                    INCLUDE (FullName, Birthday);
+                CREATE INDEX idx_gender_initial_include
+                ON Employee(Gender, Initial);
 
-                    UPDATE STATISTICS Employee;";
+                ANALYZE;";
 
-            using var context = await GetContextAsync();
-            await ExecuteQueryAsync(query, context);
+            await ExecuteQueryAsync(query);
         }
 
         public async Task OptimizeOffAsync()
         {
-            var query = @" 
-                    DROP INDEX idx_gender_initial_include ON Employee;
-                    ALTER TABLE Employee DROP COLUMN Initial;";
+            var query = @"
+                DROP INDEX IF EXISTS idx_gender_initial_include;
+                ALTER TABLE Employee DROP COLUMN Initial;";
 
-            using var context = await GetContextAsync();
-            await ExecuteQueryAsync(query, context);
+            await ExecuteQueryAsync(query);
         }
 
 
-        private async Task<SqlConnection> GetContextAsync()
+        private async Task<SqliteConnection> GetContextAsync()
         {
-            var context = new SqlConnection(DbConnection.connectionString);
+            var context = new SqliteConnection(DbConnection.connectionString);
             await context.OpenAsync();
             return context;
         }
 
-        private async Task ExecuteQueryAsync(string query, SqlConnection context)
+        private async Task ExecuteQueryAsync(string query)
         {
-            using SqlCommand cmd = new SqlCommand(query, context);
+            using var context = await GetContextAsync();
+            using var cmd = context.CreateCommand();
+            cmd.CommandText = query;
             await cmd.ExecuteNonQueryAsync();
         }
 
-        private async Task<IEnumerable<Employee>> GetEmployeesAsync(string query, SqlConnection context)
-        {            
-            using SqlCommand cmd = new SqlCommand(query, context);
+        private async Task<IEnumerable<Employee>> GetEmployeesAsync(string query)
+        {
+            using var context = await GetContextAsync();
+            using var cmd = context.CreateCommand();
+            cmd.CommandText = query;
             using var reader = await cmd.ExecuteReaderAsync();
 
             List<Employee> employees = new List<Employee>();

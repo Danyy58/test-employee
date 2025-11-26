@@ -1,4 +1,5 @@
 ﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using System.Data;
 using test_employee.Data;
 
@@ -25,15 +26,17 @@ namespace test_employee.Entity
 
         public async Task SaveAsync()
         {
-            using SqlConnection context = new SqlConnection(DbConnection.connectionString);
+            using var context = new SqliteConnection(DbConnection.connectionString);
             context.Open();
 
+            using var cmd = context.CreateCommand();
+            
             var query = "INSERT INTO Employee(FullName, Birthday, Gender) VALUES(@fullName, @birthday, @gender)";
-            using SqlCommand cmd = new SqlCommand(query, context);
+            cmd.CommandText = query;
 
-            cmd.Parameters.Add("@fullName", SqlDbType.VarChar).Value = FullName;
-            cmd.Parameters.Add("@birthday", SqlDbType.Date).Value = Birthday;
-            cmd.Parameters.Add("@gender", SqlDbType.VarChar).Value = Gender;
+            cmd.Parameters.Add("@fullName", SqliteType.Text).Value = FullName;
+            cmd.Parameters.Add("@birthday", SqliteType.Text).Value = Birthday;
+            cmd.Parameters.Add("@gender", SqliteType.Text).Value = Gender;
 
             await cmd.ExecuteNonQueryAsync();
         }
@@ -42,38 +45,47 @@ namespace test_employee.Entity
         {
             try
             {
-                using SqlConnection connection = new SqlConnection(DbConnection.connectionString);
+                using var connection = new SqliteConnection(DbConnection.connectionString);
                 connection.Open();
 
-                DataTable table = new DataTable();
-                table.Columns.Add("FullName", typeof(string));
-                table.Columns.Add("Birthday", typeof(DateTime));
-                table.Columns.Add("Gender", typeof(string));
+                using var transaction = connection.BeginTransaction();
 
-                Random rnd = new Random();
+                using var command = connection.CreateCommand();
+                command.CommandText =
+                    "INSERT INTO Employee (FullName, Birthday, Gender) VALUES ($name, $birthday, $gender)";
+
+                command.Parameters.Add("$name", SqliteType.Text);
+                command.Parameters.Add("$birthday", SqliteType.Text);
+                command.Parameters.Add("$gender", SqliteType.Text);
+
+                var rnd = new Random();
 
                 for (int i = 0; i < 100; i++)
                 {
-                    var idx = rnd.Next(0, 3);
-                    var e = employees[idx];
-                    table.Rows.Add(e.FullName, e.Birthday, e.Gender);
+                    var e = employees[rnd.Next(0, 3)];
+
+                    command.Parameters["$name"].Value = e.FullName;
+                    command.Parameters["$birthday"].Value = e.Birthday;
+                    command.Parameters["$gender"].Value = e.Gender;
+
+                    command.ExecuteNonQuery();
                 }
 
                 for (int i = 0; i < 999900; i++)
                 {
-                    var idx = rnd.Next(0, employees.Length);
-                    var e = employees[idx];
-                    table.Rows.Add(e.FullName, e.Birthday, e.Gender);
+                    var e = employees[rnd.Next(0, employees.Length)];
+
+                    command.Parameters["$name"].Value = e.FullName;
+                    command.Parameters["$birthday"].Value = e.Birthday;
+                    command.Parameters["$gender"].Value = e.Gender;
+
+                    command.ExecuteNonQuery();
                 }
 
-                using SqlBulkCopy bulk = new SqlBulkCopy(connection)
-                {
-                    DestinationTableName = "Employee"
-                };
+                transaction.Commit();
 
-                await bulk.WriteToServerAsync(table);
+                Console.WriteLine("Записи успешно созданы.");
 
-                Console.WriteLine("Записи успешно созданы."); 
             }
             catch (Exception ex)
             {
